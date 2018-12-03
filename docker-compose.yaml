@@ -1,0 +1,76 @@
+version: "3"
+services:
+  patroni_etcd:
+    container_name: patroni_etcd
+    image: dalongrong/patroni
+    command: --etcd
+  dbnode1:
+    image: dalongrong/patroni
+    hostname: dbnode1
+    ports:
+    - "5432:5432"
+    - "8008:8008"
+    links:
+        - patroni_etcd:patroni_etcd
+    volumes:
+        - ./patroni:/patroni
+    env_file: docker/patroni-secrets.env
+    environment:
+        PATRONI_ETCD_URL: http://patroni_etcd:2379
+        PATRONI_NAME: dbnode1
+        PATRONI_SCOPE: testcluster
+
+  dbnode2:
+    image: dalongrong/patroni
+    hostname: dbnode2
+    ports:
+    - "5433:5432"
+    - "8009:8008"
+    links:
+        - patroni_etcd:patroni_etcd
+    volumes:
+        - ./patroni:/patroni
+    env_file: docker/patroni-secrets.env
+    environment:
+        PATRONI_ETCD_URL: http://patroni_etcd:2379
+        PATRONI_NAME: dbnode2
+        PATRONI_SCOPE: testcluster
+
+  dbnode3:
+    image: dalongrong/patroni
+    hostname: dbnode3
+    ports:
+    - "5434:5432"
+    - "8010:8008"
+    links:
+        - patroni_etcd:patroni_etcd
+    volumes:
+        - ./patroni:/patroni
+    env_file: docker/patroni-secrets.env      
+    environment:
+        PATRONI_ETCD_URL: http://patroni_etcd:2379
+        PATRONI_NAME: dbnode3
+        PATRONI_SCOPE: testcluster
+  
+  haproxy:
+    image: dalongrong/patroni
+    links:
+        - patroni_etcd:patroni_etcd
+    ports:
+        - "5000:5000"
+        - "5001:5001"
+        - "7000:7000"
+    environment:
+        PATRONI_ETCD_URL: http://patroni_etcd:2379
+        PATRONI_SCOPE: testcluster
+    command: --confd
+  graphql-engine:
+    image: hasura/graphql-engine:v1.0.0-alpha30
+    ports:
+    - "8080:8080"
+    environment:
+    - "POSTGRES_PASSWORD:postgres"
+    command: >
+      /bin/sh -c "
+      graphql-engine --database-url postgres://postgres:postgres@haproxy:5000/postgres serve --enable-console;
+      "
